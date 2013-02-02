@@ -98,6 +98,8 @@ If you compile the plugin outside of the VDR source codes you must
 copy the resulting binary to VDRs directory where the other plugins
 are expected.
 
+Obsolete, now accomplished by the plugin's Makefile:
+
 In order to work correctly you must copy the subdirectory 'live' from
 the source distribution to the directory where the vdr plugins look
 for their configuration files. The pure VDR default for this config

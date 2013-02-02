@@ -1,35 +1,46 @@
+#
+# Makefile for a Video Disk Recorder plugin
+# Adapted to the new VDR makefile environment by Stefan Hofmann
+#
+# $Id$
+
 # The official name of this plugin.
+# This name will be used in the '-P...' option of VDR to load the plugin.
+# By default the main source file also carries this name.
 
 PLUGIN = live
 
-### Additional options to silence TNTNET warnings
-TNTFLAGS   ?= -Wno-overloaded-virtual -Wno-unused-variable
+### The version number of this plugin (taken from the setup header file):
+
+VERSION = $(shell grep '\#define LIVEVERSION ' ../setup.h | awk '{ print $$3 }' | sed -e 's/[";]//g')
 TNTVERSION ?= $(shell tntnet-config --version | sed -e's/\.//g' | sed -e's/pre.*//g' | awk '/^..$$/ { print $$1."000"} /^...$$/ { print $$1."00"} /^....$$/ { print $$1."0" } /^.....$$/ { print $$1 }')
-
-### The C++ compiler and options:
-
-CXX      ?= g++
-AR       ?= ar
-ECPPC    ?= ecppc
-
-CXXFLAGS ?= -O2 -Woverloaded-virtual -Wall -fPIC
-DEFINES  ?= -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DTNTVERSION=$(TNTVERSION)
 
 ### The directory environment:
 
-VDRDIR   ?= ../../../..
+# Use package data if installed...otherwise assume we're under the VDR source directory:
+PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../../vdr.pc))
+LIBDIR = $(call PKGCFG,libdir)
+LOCDIR = $(call PKGCFG,locdir)
+#
+TMPDIR ?= /tmp
 
-### Make sure that necessary options are included:
+### The compiler options:
 
--include $(VDRDIR)/Make.global
+export CFLAGS   = $(call PKGCFG,cflags)
+export CXXFLAGS = $(call PKGCFG,cxxflags)
+TNTFLAGS ?= -Wno-overloaded-virtual -Wno-unused-variable  -Wno-unused-but-set-variable
 
-### Allow user defined options to overwrite defaults:
+ECPPC ?= ecppc
 
--include $(VDRDIR)/Make.config
+### The name of the library file:
+
+ARFILE = libpages.a
 
 ### Includes and Defines (add further entries here):
 
-INCLUDES += -I$(VDRDIR)/include -I..
+INCLUDES += -I..
+
+DEFINES ?= -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DTNTVERSION=$(TNTVERSION)
 
 ### The object files (add further files here):
 
@@ -42,35 +53,41 @@ OBJS	= menu.o recordings.o schedule.o multischedule.o screenshot.o   \
           rwd_recording.o setup.o content.o epginfo.o timerconflicts.o  \
           recstream.o users.o edit_user.o edit_recording.o
 
-### Default rules:
+### The main target:
 
 .PHONY: all clean
 
-all: libpages.a
+all: $(ARFILE)
 
 ### Implicit rules:
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(TNTFLAGS) -c $(DEFINES) $(PLUGINFEATURES) $(INCLUDES) $<
+	$(CXX) $(CXXFLAGS) $(TNTFLAGS) -c $(DEFINES) $(PLUGINFEATURES) $(INCLUDES) -o $@ $<
 
 %.cpp: %.ecpp
-	$(ECPPC) $(ECPPFLAGS) $(ECPPFLAGS_CPP) $<
+	$(ECPPC) $(ECPPFLAGS) $(ECPPFLAGS_CPP) -o $@ $<
 
-# Dependencies:
+### Dependencies:
 
 MAKEDEP = $(CXX) -MM -MG
 DEPFILE = .dependencies
 $(DEPFILE): Makefile $(OBJS:%.o=%.cpp) $(OBJS:%.o=%.ecpp)
 	@$(MAKEDEP) $(DEFINES) $(PLUGINFEATURES) $(INCLUDES) $(OBJS:%.o=%.cpp) > $@
 
-ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPFILE)
-endif
 
+### Internationalization (I18N):
+
+install-i18n:
+ 
 ### Targets:
 
-libpages.a: $(OBJS)
+$(ARFILE): $(OBJS)
 	$(AR) r $@ $^
 
+install-lib: $(ARFILE)
+
+install: install-lib install-i18n
+
 clean:
-	@rm -f *~ *.o core* libpages.a $(OBJS:%.o=%.cpp) $(DEPFILE)
+	@rm -f *~ *.o core* $(ARFILE) $(OBJS:%.o=%.cpp) $(DEPFILE)
