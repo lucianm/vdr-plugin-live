@@ -357,9 +357,7 @@ namespace vdrlive {
 
 		private:
 			DirectoryList(RecordingsManagerPtr recManPtr);
-#if APIVERSNUM >= 10712
 			void InjectFoldersConf(cNestedItem * folder, std::string parent = "");
-#endif
 		public:
 			typedef std::list< std::string > DirVecType;
 
