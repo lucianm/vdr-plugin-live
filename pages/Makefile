@@ -13,7 +13,10 @@ PLUGIN = live
 ### The version number of this plugin (taken from the setup header file):
 
 VERSION = $(shell grep '\#define LIVEVERSION ' ../setup.h | awk '{ print $$3 }' | sed -e 's/[";]//g')
+
 TNTVERSION ?= $(shell tntnet-config --version | sed -e's/\.//g' | sed -e's/pre.*//g' | awk '/^..$$/ { print $$1."000"} /^...$$/ { print $$1."00"} /^....$$/ { print $$1."0" } /^.....$$/ { print $$1 }')
+
+GIT_REV = $(shell git describe --always 2>/dev/null)
 
 ### The directory environment:
 
@@ -40,7 +43,7 @@ ARFILE = libpages.a
 
 INCLUDES += -I..
 
-DEFINES ?= -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DTNTVERSION=$(TNTVERSION)
+DEFINES ?= -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DTNTVERSION=$(TNTVERSION) $(if $(GIT_REV), -DGIT_REV='"$(GIT_REV)"')
 
 ### The object files (add further files here):
 

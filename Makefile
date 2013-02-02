@@ -15,9 +15,6 @@ PLUGIN = live
 VERSION = $(shell grep '\#define LIVEVERSION ' setup.h | awk '{ print $$3 }' | sed -e 's/[";]//g')
 
 TNTVERSION = $(shell tntnet-config --version | sed -e's/\.//g' | sed -e's/pre.*//g' | awk '/^..$$/ { print $$1."000"} /^...$$/ { print $$1."00"} /^....$$/ { print $$1."0" } /^.....$$/ { print $$1 }')
-TNTVERS7   = $(shell ver=$(TNTVERSION); if [ $$ver -ge "1606" ]; then echo "yes"; fi)
-
-VERSIONSUFFIX = gen_version_suffix.h
 
 ### The directory environment:
 
@@ -32,14 +29,12 @@ TMPDIR ?= /tmp
 ### The compiler options:
 
 export CFLAGS   = $(call PKGCFG,cflags)
-export CXXFLAGS = $(call PKGCFG,cxxflags)
-CXXFLAGS += $(shell tntnet-config --cxxflags)
+export CXXFLAGS = $(call PKGCFG,cxxflags) $(shell tntnet-config --cxxflags)
 
 # Check for libpcre c++ wrapper
 
 HAVE_LIBPCRECPP = $(shell pcre-config --libs-cpp)
 ECPPC ?= ecppc
-
 
 ### The version number of VDR's plugin API:
 
@@ -56,17 +51,11 @@ SOFILE = libvdr-$(PLUGIN).so
 
 ### Includes and Defines (add further entries here):
 
-INCLUDES += 
+INCLUDES +=
 
-DEFINES	 += -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
-DEFINES  += -DTNTVERSION=$(TNTVERSION)
+DEFINES  += -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DTNTVERSION=$(TNTVERSION)
 
 ### Optional configuration features:
-
-ifneq ($(TNTVERS7),yes)
-	INCLUDES += -Ihttpd
-	LIBS	 += httpd/libhttpd.a
-endif
 
 PLUGINFEATURES =
 ifneq ($(HAVE_LIBPCRECPP),)
@@ -79,9 +68,6 @@ endif
 ### The object files (add further files here):
 
 SUBDIRS	= pages css javascript
-ifneq ($(TNTVERS7),yes)
-	SUBDIRS += httpd
-endif
 
 OBJS = $(PLUGIN).o thread.o tntconfig.o setup.o i18n.o timers.o \
        tools.o recman.o tasks.o status.o epg_events.o epgsearch.o \
@@ -94,7 +80,7 @@ WEBLIBS	   = pages/libpages.a css/libcss.a javascript/libjavascript.a
 
 ### The main target:
 
-.PHONY: all dist clean subdirs $(SUBDIRS) PAGES
+.PHONY: all dist clean
 
 all: subdirs $(SOFILE) i18n
 
@@ -140,40 +126,11 @@ install-i18n: $(I18Nmsgs)
 
 ### Targets:
 
-subdirs: $(SUBDIRS)
+subdirs:
+	for i in $(SUBDIRS); do $(MAKE) -C $$i PLUGINFEATURES="$(PLUGINFEATURES)"; done
 
-$(SUBDIRS): $(VERSIONSUFFIX)
-	@echo "*** $@"
-	@$(MAKE) -C $@ VDRDIR="$(shell realpath "$(VDRDIR)")" PLUGINFEATURES="$(PLUGINFEATURES)"
-
-$(VERSIONSUFFIX):
-	./buildutil/version-util $(VERSIONSUFFIX) || ./buildutil/version-util -F $(VERSIONSUFFIX)
-
-$(SOFILE): $(VERSIONSUFFIX) $(OBJS)
+$(SOFILE): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -Wl,--whole-archive $(WEBLIBS) -Wl,--no-whole-archive $(LIBS) -o $@
-
-ifneq ($(TNTVERS7),yes)
-	@echo ""
-	@echo "If LIVE was built successfully and you can try to use it!"
-	@echo ""
-	@echo ""
-	@echo ""
-	@echo ""
-	@echo "IMPORTANT INFORMATION:"
-	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-	@echo "+ This is one of the *last* CVS versions of LIVE which will   +"
-	@echo "+ work with versions of tntnet *less* than 1.6.0.6!           +"
-	@echo "+                                                             +"
-	@echo "+ This version of LIVE already supports tntnet >= 1.6.0.6.    +"
-	@echo "+                                                             +"
-	@echo "+ Please upgrade tntnet to at least version 1.6.0.6 soon, if  +"
-	@echo "+ you want to keep track of bleeding edge LIVE development.   +"
-	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-	@echo ""
-	@echo ""
-	@echo ""
-	@echo ""
-endif
 
 install-lib: $(SOFILE)
 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
@@ -192,7 +149,9 @@ dist: $(I18Npo) clean
 	@-rm -rf $(TMPDIR)/$(ARCHIVE)
 	@echo Distribution package created as $(PACKAGE).tgz
 
-clean: subdirs
+clean-subdirs:
+	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+
+clean: clean-subdirs
 	@-rm -f $(PODIR)/*.mo $(PODIR)/*.pot
 	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~
-	@-rm -f $(VERSIONSUFFIX)
