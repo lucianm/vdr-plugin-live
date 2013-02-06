@@ -22,7 +22,8 @@ TNTVERSION = $(shell tntnet-config --version | sed -e's/\.//g' | sed -e's/pre.*/
 PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
 LIBDIR = $(call PKGCFG,libdir)
 LOCDIR = $(call PKGCFG,locdir)
-PLGCONFDIR = $(call PKGCFG,configdir)/plugins/$(PLUGIN)
+PLGCFG = $(call PKGCFG,plgcfg)
+PLGRESDIR = $(call PKGCFG,resdir)/plugins/$(PLUGIN)
 #
 TMPDIR ?= /tmp
 
@@ -39,6 +40,10 @@ ECPPC ?= ecppc
 ### The version number of VDR's plugin API:
 
 APIVERSION = $(call PKGCFG,apiversion)
+
+### Allow user defined options to overwrite defaults:
+
+-include $(PLGCFG)
 
 ### The name of the distribution archive:
 
@@ -136,8 +141,8 @@ install-lib: $(SOFILE)
 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
 
 install-resources:
-	mkdir -p $(DESTDIR)$(PLGCONFDIR)
-	cp -a live/* $(DESTDIR)$(PLGCONFDIR)
+	mkdir -p $(DESTDIR)$(PLGRESDIR)
+	cp -a live/* $(DESTDIR)$(PLGRESDIR)
 
 install: subdirs install-lib install-i18n install-resources
 
